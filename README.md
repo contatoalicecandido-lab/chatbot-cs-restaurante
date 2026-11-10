@@ -1,5 +1,7 @@
 # atendimento. · chatbot de suporte com IA (fluxo no n8n)
 
+![Demo do fluxo de atendimento com IA](imagens/fluxo.png)
+
 Demo interativa de um chatbot de suporte feito no n8n. A pessoa escreve uma dúvida no chat e a mensagem corre pelo fluxo, nó por nó:
 
 1. **Chat** recebe a pergunta.
