@@ -1,106 +1,405 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Chatbot de Suporte · Restô</title>
-  <meta name="description" content="Demo interativa de um chatbot de suporte feito no n8n: consulta a base de conhecimento, classifica cada chamado com IA, registra tudo e avisa o time de CS quando um assunto se repete.">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Atendimento com IA · fluxo no n8n</title>
+<meta name="description" content="Demo interativa de um chatbot de suporte feito no n8n: consulta a base de respostas, classifica cada chamado com IA, registra tudo e avisa a equipe por e-mail quando um assunto se repete.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* The page is the workflow canvas: dot grid, hairline spec nodes, orange only for live signal, mustard for the team */
+:root{
+  --bg:#0c1e22; --node:#1b3c43; --node2:#22474f; --ink:#f3f1ea; --mute:#93abaa; --dim:#5f7b7c; --hair:rgba(243,241,234,.22); --hair2:rgba(243,241,234,.5);
+  --or:#ff6a2b; --mu:#f0b23e; --ok:#7fd1b9;
+  --f:"Outfit",ui-rounded,system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--f);overflow:hidden}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--or);outline-offset:2px}
+.mono{font-family:var(--mono)}
 
-  <!-- Fontes: troque aqui e em css/tema.css -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+#vp{position:fixed;inset:0;overflow:hidden;touch-action:none;cursor:grab;
+  background-color:var(--bg)}
+#vp.panning{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0;width:1700px;height:1000px}
+#wires{position:absolute;left:0;top:0;width:1700px;height:1000px;overflow:visible;pointer-events:none}
+.w{fill:none;stroke:var(--hair2);stroke-width:1.3}
+.w.on{stroke:var(--or);stroke-width:2}
+.w.mu{stroke:var(--mu)}
+.w.dash{stroke-dasharray:4 5}
 
-  <link rel="stylesheet" href="css/tema.css">
-  <link rel="stylesheet" href="css/estilo.css">
+/* title on the canvas */
+.title{position:absolute;left:40px;top:34px;pointer-events:none;user-select:none}
+.title h1{margin:0;font-weight:800;font-size:118px;line-height:.86;letter-spacing:-4px}
+.title h1 i{font-style:normal;color:var(--or)}
+.title .sub{display:flex;gap:28px;margin-top:16px;font-family:var(--mono);font-size:12.5px;letter-spacing:2px;color:var(--mute);text-transform:uppercase}
+.title .sub b{color:var(--ink);font-weight:600}
+.howto{position:absolute;left:830px;top:58px;width:330px;font-size:15px;color:var(--mute);pointer-events:none}
+.howto ol{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:6px}
+.howto li{display:grid;grid-template-columns:30px 1fr}
+.howto li span{font-family:var(--mono);color:var(--ink);font-size:12px;padding-top:2px}
+.lab{font-family:var(--mono);font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mute)}
+
+/* nodes */
+.node{position:absolute;background:var(--node);border:1px solid var(--hair);user-select:none;transition:border-color .25s,background-color .25s}
+.node::before,.node::after{content:"";position:absolute;width:5px;height:5px;background:var(--ink);top:-3px;left:-3px;box-shadow:calc(var(--w) - 1px) 0 0 var(--ink),0 calc(var(--h) - 1px) 0 var(--ink),calc(var(--w) - 1px) calc(var(--h) - 1px) 0 var(--ink)}
+.node::after{display:none}
+.node .tag{position:absolute;left:0;top:-20px;white-space:nowrap}
+.node .tag b{color:var(--ink);font-weight:600}
+.node.sm{padding:12px 12px 10px;display:grid;grid-template-columns:34px 1fr;gap:4px 10px;align-content:start;cursor:grab}
+.node.sm .g{grid-row:span 2;width:34px;height:34px;border:1px solid var(--hair);display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:11.5px}
+.node.sm b{font-weight:600;font-size:15px;line-height:1.2}
+.node.sm small{color:var(--mute);font-size:12px;line-height:1.3}
+.node.sm .out{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-top:1px solid var(--hair);padding-top:6px;margin-top:4px}
+.node.lit{border-color:var(--or);background-color:var(--node2)}
+.node.lit .g{background:var(--or);color:#2a1206;border-color:var(--or)}
+.node.lit .out{color:var(--ink)}
+.node.lit.mu{border-color:var(--mu)}
+.node.lit.mu .g{background:var(--mu);border-color:var(--mu)}
+.node.idle{opacity:.45}
+.node.sel{outline:1px dashed var(--ink);outline-offset:6px}
+.port{position:absolute;width:9px;height:9px;background:var(--bg);border:1.5px solid var(--hair2);border-radius:50%}
+.coord{position:absolute;left:0;bottom:-22px;font-family:var(--mono);font-size:11px;color:var(--or);white-space:nowrap;display:none}
+.node.drag .coord{display:block}
+.node.drag{border-color:var(--ink)}
+
+/* big nodes */
+.big{display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--hair);cursor:grab;font-family:var(--mono);font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:var(--mute)}
+.bar b{color:var(--ink);font-weight:600}
+.bar .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.bar .r{margin-left:auto}
+
+.chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:14px 14px 8px;cursor:auto;scrollbar-width:thin}
+.m{max-width:86%;padding:9px 13px;font-size:14.5px;line-height:1.45;overflow-wrap:anywhere;animation:pop .25s ease-out}
+.m.me{align-self:flex-end;background:var(--ink);color:var(--bg);border-radius:16px 16px 3px 16px}
+.m.bot{align-self:flex-start;background:var(--node2);border:1px solid var(--hair);border-radius:16px 16px 16px 3px}
+.m .k{display:block;margin-top:6px;font-family:var(--mono);font-size:10.5px;letter-spacing:.8px;text-transform:uppercase}
+.k.ok{color:var(--or)} .k.fw{color:var(--mu)}
+.typing{align-self:flex-start;display:flex;gap:4px;padding:10px 12px;border:1px solid var(--hair);border-radius:16px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--mute);animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes pop{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:6px 12px 10px;border-top:1px solid var(--hair);cursor:auto}
+.chips .lab{width:100%;font-size:10px}
+.chip{flex:none;border:1px solid var(--hair);background:transparent;padding:5px 10px;font-size:12.5px;border-radius:999px}
+.chip:hover{border-color:var(--ink)}
+.send{display:flex;border-top:1px solid var(--hair);cursor:auto}
+.send input{flex:1;min-width:0;background:transparent;border:0;outline:0;padding:13px 14px;font-size:15px}
+.send input::placeholder{color:var(--dim)}
+.send button{border:0;border-left:1px solid var(--hair);background:var(--or);color:#2a1206;font-weight:700;padding:0 18px}
+.send button:disabled{opacity:.5}
+
+.inbox{flex:1;overflow:hidden;cursor:auto}
+.mail{padding:12px 14px;border-bottom:1px solid var(--hair);display:grid;gap:3px;animation:in .5s ease-out}
+.mail.new{background:rgba(240,178,62,.1)}
+.mail .row{display:flex;justify-content:space-between;gap:8px}
+.mail b{font-weight:600;font-size:14.5px}
+.mail span{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.mail p{margin:0;font-size:13px;color:var(--mute);line-height:1.4}
+.empty{padding:26px 16px;color:var(--dim);font-size:13.5px;text-align:center}
+@keyframes in{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+.badge{background:var(--mu);color:#2a1d04;padding:0 7px;font-weight:700;border-radius:999px}
+
+.rule{padding:12px 14px;display:grid;gap:8px;cursor:auto}
+.rule p{margin:0;font-size:14px}
+.rule p b{color:var(--mu);font-family:var(--mono)}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:28px;height:28px;border:1px solid var(--hair);background:transparent;font-weight:600}
+.step button:hover{border-color:var(--ink)}
+.step output{font-family:var(--mono);font-size:18px;font-weight:600;min-width:30px;text-align:center}
+
+.dash{padding:14px;display:grid;gap:12px;cursor:auto}
+.kp{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--hair)}
+.kp div{padding:10px 12px;display:grid}
+.kp div+div{border-left:1px solid var(--hair)}
+.kp b{font-size:30px;font-weight:700;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.kp span{font-size:12px;color:var(--mute)}
+.kp .o b{color:var(--or)} .kp .y b{color:var(--mu)}
+.cats{display:grid;gap:7px}
+.cat{display:grid;grid-template-columns:82px 1fr 54px;gap:8px;align-items:center;font-size:13px}
+.cat .t{height:6px;background:rgba(243,241,234,.08);position:relative}
+.cat .t i{position:absolute;left:0;top:0;bottom:0;background:var(--ink);transition:width .5s}
+.cat .t u{position:absolute;top:-4px;bottom:-4px;width:1.5px;background:var(--mu)}
+.cat.hot .t i{background:var(--mu)}
+.cat span:last-child{font-family:var(--mono);font-size:11.5px;color:var(--mute);text-align:right}
+.simb{justify-self:start;border:1px solid var(--ink);background:transparent;padding:7px 14px;font-weight:600;font-size:13.5px}
+.simb.on{background:var(--or);border-color:var(--or);color:#2a1206}
+.ticker{font-family:var(--mono);font-size:11.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:16px}
+
+.note{position:absolute;font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mute);pointer-events:none;width:190px;line-height:1.5}
+.note::before{content:"";position:absolute;left:-26px;top:7px;width:20px;height:1px;background:var(--mute)}
+
+.pulse{fill:var(--or)}
+.plab{font:600 10px var(--mono);fill:var(--or);letter-spacing:.5px}
+
+/* chrome over the canvas */
+.ui{position:fixed;z-index:5;display:flex;gap:6px;align-items:center}
+.zoom{left:max(14px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+.zoom button{width:36px;height:36px;border:1px solid var(--hair2);background:var(--bg);font-family:var(--mono);font-size:15px}
+.zoom button:hover{border-color:var(--ink)}
+.zoom span{font-family:var(--mono);font-size:11.5px;color:var(--mute);margin-left:6px}
+.credit{right:max(14px,env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right;display:block;max-width:60vw;background:var(--bg);padding:4px 6px}
+.credit b{color:var(--ink);font-weight:600}
+
+/* inspector */
+#insp{position:fixed;z-index:6;top:max(14px,env(safe-area-inset-top,0px));right:max(14px,env(safe-area-inset-right,0px));width:340px;max-height:calc(100% - 90px);overflow:auto;background:var(--bg);border:1px solid var(--hair2);padding:16px;display:grid;gap:12px}
+#insp h3{margin:0;font-size:22px;font-weight:700;line-height:1.15}
+#insp p{margin:0;color:var(--mute);font-size:14px}
+#insp code{display:block;font-family:var(--mono);font-size:12px;background:var(--node);border:1px solid var(--hair);padding:9px 10px;white-space:pre-wrap;overflow-wrap:anywhere}
+#insp .x{position:absolute;top:10px;right:10px;width:30px;height:30px;border:1px solid var(--hair);background:transparent}
+#insp[hidden]{display:none}
+.narrow .title h1{font-size:54px;letter-spacing:-2px}
+.narrow .title .sub{gap:14px;font-size:11px}
+.narrow .howto{left:40px;top:140px;width:330px;font-size:14px}
+.howto .nar{display:none}.narrow .howto li:nth-child(2),.narrow .howto li:nth-child(3){display:none}.narrow .howto .nar{display:grid;color:var(--or)}
+@media (max-width:640px){#insp{left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));top:auto;bottom:calc(64px + env(safe-area-inset-bottom,0px));width:auto;max-height:46%}.credit{display:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
 </head>
 <body>
 
-  <header class="topo">
-    <p class="topo__selo">Projeto · n8n + IA</p>
-    <h1 class="topo__titulo">Chatbot de suporte para restaurantes</h1>
-    <p class="topo__texto">
-      Um chatbot no início da operação: ele responde só o que está na base de conhecimento e encaminha o resto para o suporte.
-      Cada chamado é classificado pela IA e registrado, e quando uma categoria chega a 3 chamados o time de CS recebe uma dica
-      para criar material sobre o tema. Cumprimentos e conversa solta recebem resposta pronta e não viram chamado.
-    </p>
-  </header>
+<div id="vp" aria-label="Fluxo de atendimento. Arraste o fundo para navegar.">
+  <div id="world">
+    <svg id="wires"></svg>
+    <div class="title"><h1>atendimento<i>.</i></h1><div class="sub"><span><b>01</b> responde</span><span><b>02</b> classifica</span><span><b>03</b> avisa</span></div></div>
+    <div class="howto"><span class="lab">Como usar</span><ol>
+      <li><span>→</span>Escreva uma dúvida no chat. É um chatbot: ele não conversa, ele consulta a base de respostas da equipe.</li>
+      <li><span>→</span>Veja a mensagem correr pelo fluxo.</li>
+      <li><span>→</span>Clique num nó para ver o que entra e sai. Arraste para mudar de lugar.</li><li class="nar"><span>→</span>Arraste o fundo para o lado e veja o fluxo.</li></ol></div>
+    <div id="nodes"></div>
+    <div class="note" style="left:1418px;top:318px">A IA só responde com o que está na base da equipe</div>
+    <div class="note" style="left:1196px;top:866px">A equipe escolhe o limite</div>
+  </div>
+</div>
 
-  <main class="painel">
+<div class="ui zoom"><button type="button" id="zo" aria-label="Diminuir zoom">−</button><button type="button" id="zi" aria-label="Aumentar zoom">+</button><button type="button" id="zf" aria-label="Ver tudo">⤢</button><span id="zl">100%</span></div>
+<div class="ui credit"><b>Alice Cândido</b> · Customer Success e automação · n8n · Google Sheets · Groq · Gmail<br>Nesta demonstração a busca na base roda no navegador; no fluxo real quem responde é a IA.</div>
+<aside id="insp" hidden aria-live="polite"></aside>
 
-    <!-- CHAT -->
-    <section class="cartao chat" aria-label="Chat">
-      <div class="cartao__cabecalho">
-        <span class="ponto-online" aria-hidden="true"></span>
-        <h2 class="cartao__titulo">Suporte Restô</h2>
-      </div>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function norm(s){return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ')}
 
-      <div class="mensagens" id="mensagens" aria-live="polite">
-        <div class="mensagem mensagem--bot">
-          <div class="mensagem__balao" id="boas-vindas"></div>
-        </div>
-      </div>
+/* knowledge base: the FAQ tab (swap for the real sheet) */
+var KB=[
+ {cat:'Financeiro',q:'Fui cobrado duas vezes',k:['duas vezes','duplicad','cobrad','cobranca','dobro'],a:'Sinto muito! A cobrança repetida é estornada automaticamente em até 5 dias úteis. Se não aparecer, me chama aqui que eu passo para a equipe.'},
+ {cat:'Financeiro',q:'2ª via do boleto',k:['boleto','segunda via','2 via','2a via'],a:'Em Minha conta › Pagamentos você baixa a 2ª via na hora. Ela vale até o fim do mês.'},
+ {cat:'Financeiro',q:'Formas de pagamento',k:['forma de pagamento','formas de pagamento','pix','cartao','parcel'],a:'Aceitamos Pix, boleto e cartão de crédito em até 12x. Pelo Pix a confirmação é na hora.'},
+ {cat:'Financeiro',q:'Cancelar o plano',k:['cancel','assinatura','plano'],a:'Você cancela em Minha conta › Plano › Cancelar. O acesso continua até o fim do período já pago, sem multa.'},
+ {cat:'Financeiro',q:'Reembolso',k:['reembols','estorno','devolu','dinheiro de volta'],a:'Em até 7 dias da compra o reembolso é integral. É só pedir em Minha conta › Pedidos › Solicitar reembolso.'},
+ {cat:'Suporte',q:'Esqueci a senha',k:['senha','esqueci','redefinir'],a:'É rapidinho: toque em Entrar › Esqueci a senha. O link chega no seu e-mail em até 2 minutos.'},
+ {cat:'Suporte',q:'Não consigo entrar',k:['entrar','login','logar','acessar','acesso','bloquead'],a:'Confira se o e-mail está certo e tente redefinir a senha. Se aparecer "conta bloqueada", aguarde 15 minutos e tente de novo.'},
+ {cat:'Suporte',q:'App travando',k:['trav','erro','bug','fecha sozinho','nao abre','lento'],a:'Atualize o app na loja e reinicie o celular. Se continuar, me diga o modelo do aparelho que eu passo para o time técnico.'},
+ {cat:'Suporte',q:'Mudar o e-mail',k:['mudar email','trocar email','alterar email','mudo meu email','troco meu email','meu email'],a:'Em Minha conta › Dados pessoais › E-mail. Vamos mandar um código de confirmação para o endereço novo.'},
+ {cat:'Outros',q:'Horário de atendimento',k:['horario','que horas','funciona','aberto'],a:'Eu respondo 24 horas por dia. A equipe atende de segunda a sexta, das 9h às 18h.'},
+ {cat:'Outros',q:'Nota fiscal',k:['nota fiscal','nf ','nota'],a:'Sim! A nota fiscal chega no seu e-mail em até 24 horas depois da confirmação do pagamento.'}
+];
+var CATS=['Financeiro','Suporte','Outros'];
+/* greetings and small talk: answered without opening a ticket */
+var SMALL=['bom dia','boa tarde','boa noite','tudo bem','tudo bom','tudo certo','td bem','como vai','como voce vai','como vc vai','como voce esta','como vc esta','como esta','e ai','eai','oi','ola','opa','hey','hello','hi','blz','beleza','obrigado','obrigada','obg','valeu','tchau','ate mais','ate logo','ok','certo','entendi','show','tenho uma duvida','tem uma duvida','uma duvida','duvida','preciso de ajuda','pode me ajudar','me ajuda','ajuda','voce','vc','com','e','eu','tenho','tem','pode','sim','nao','por favor','pf'];
+function smalltalk(q){
+  if(match(q).hit)return null;
+  var t=' '+norm(q).replace(/\s+/g,' ')+' ',rest=t;
+  SMALL.slice().sort(function(a,b){return b.length-a.length}).forEach(function(w){rest=rest.split(' '+w+' ').join(' ')});
+  if(rest.replace(/\s/g,'').length>2)return null;
+  var g=/bom dia/.test(t)?'Bom dia!':/boa tarde/.test(t)?'Boa tarde!':/boa noite/.test(t)?'Boa noite!':'Oi!';
+  if(/obrigad|obg|valeu/.test(t))return{k:'agradecimento',a:'Por nada! Se tiver outra dúvida, é só mandar.'};
+  if(/tchau|ate mais|ate logo/.test(t))return{k:'despedida',a:'Até mais! Se precisar, é só chamar.'};
+  if(/duvida|ajuda/.test(t))return{k:'pedido de ajuda',a:'Claro! Pode mandar sua dúvida que eu consulto a base de respostas.'};
+  return{k:'saudação',a:g+(/tudo|como/.test(t)?' Tudo certo por aqui.':'')+' Qual é a sua dúvida? Posso ajudar com pagamento, acesso à conta e uso do app.'};
+}
+function match(text){
+  var t=' '+norm(text)+' ',best=null,bs=0;
+  KB.forEach(function(e){var s=0;e.k.forEach(function(k){if(t.indexOf(norm(k))>-1)s+=k.length>6?2:1});if(s>bs){bs=s;best=e}});
+  if(best)return{hit:best,cat:best.cat};
+  return{hit:null,cat:/pag|cobr|preco|valor|fatura|dinheiro|compra|desconto/.test(t)?'Financeiro':/app|site|conta|aplicativo|problema/.test(t)?'Suporte':'Outros'};
+}
 
-      <div class="sugestoes" id="sugestoes">
-        <div class="sugestoes__grupo">
-          <span class="sugestoes__titulo">Opções:</span>
-          <div class="sugestoes__botoes" id="opcoes"></div>
-        </div>
-        <div class="sugestoes__grupo sugestoes__grupo--teste">
-          <span class="sugestoes__titulo">Teste também:</span>
-          <div class="sugestoes__botoes">
-            <button type="button" data-pergunta="Bom dia, tudo bem?">"Bom dia, tudo bem?"</button>
-            <button type="button" data-pergunta="Quero falar com alguém">"Quero falar com alguém"</button>
-            <button type="button" data-pergunta="Vocês têm integração com o iFood?">Pergunta fora da base</button>
-          </div>
-        </div>
-      </div>
+/* nodes on the canvas */
+var N={
+ chat:{x:40,y:300,w:340,h:540,big:1,tag:'<b>Chat</b> · Chat Trigger'},
+ kb:{x:450,y:310,g:'SH',t:'Lê a base',s:'Sheets · aba FAQ',tag:'02 · Google Sheets',d:'Busca todas as perguntas e respostas que a equipe cadastrou na planilha.'},
+ prompt:{x:690,y:310,g:'JS',t:'Monta o prompt',s:'Code',tag:'03 · Code',d:'Junta as instruções de comportamento, a base inteira e a pergunta do cliente num texto só.'},
+ groq:{x:930,y:310,g:'AI',t:'Pergunta à IA',s:'HTTP · Groq LLaMA',tag:'04 · HTTP Request',d:'Envia o prompt para a API da Groq. A IA só pode responder com o que está na base.'},
+ parse:{x:1170,y:310,g:'JS',t:'Lê a resposta',s:'Code · JSON',tag:'05 · Code',d:'A IA devolve um JSON com dois campos: a resposta para o cliente e a categoria do chamado.'},
+ log:{x:450,y:500,g:'SH',t:'Registra',s:'Sheets · Append row',tag:'06 · Google Sheets',d:'Nova linha na aba Chamados: data, pergunta, resposta, categoria e status (resolvido ou encaminhado).'},
+ hist:{x:690,y:500,g:'SH',t:'Busca histórico',s:'Sheets · Get rows',tag:'07 · Google Sheets',d:'Traz os chamados de hoje da mesma categoria.'},
+ count:{x:930,y:500,g:'JS',t:'Conta repetições',s:'Code',tag:'08 · Code',d:'Conta quantos chamados aquela categoria já teve.'},
+ iff:{x:1170,y:500,g:'IF',t:'Passou do limite?',s:'IF',tag:'09 · IF',d:'Se passou do limite que a equipe definiu, segue para o alerta. Se não, o fluxo termina.'},
+ gmail:{x:1410,y:500,g:'@',t:'Alerta a equipe',s:'Gmail · Send',tag:'10 · Gmail',d:'Manda um e-mail para a equipe sugerindo criar um material de apoio sobre o assunto.'},
+ rule:{x:1170,y:690,w:220,h:156,big:1,tag:'<b>Regra</b> · definida pela equipe'},
+ dash:{x:450,y:690,w:430,h:250,big:1,tag:'<b>Painel</b> · lê a aba Chamados'},
+ inbox:{x:1410,y:690,w:280,h:250,big:1,tag:'<b>Caixa de entrada</b> · equipe@empresa.com'}
+};
+var E=[['chat','kb'],['kb','prompt'],['prompt','groq'],['groq','parse'],['parse','chat','loop'],['parse','log','down'],['log','hist'],['hist','count'],['count','iff'],['iff','gmail'],['gmail','inbox'],['log','dash'],['rule','iff']];
+var ORDER=['kb','prompt','groq','parse','log','hist','count','iff','gmail'];
 
-      <form class="entrada" id="form-chat" autocomplete="off">
-        <label for="campo-mensagem" class="visualmente-oculto">Sua mensagem</label>
-        <input id="campo-mensagem" class="entrada__campo" type="text" placeholder="Digite sua dúvida…" maxlength="300">
-        <button id="botao-enviar" class="entrada__botao" type="submit">Enviar</button>
-      </form>
-    </section>
+var html='';
+for(var id in N){var n=N[id];if(!n.w){n.w=200;n.h=106}
+  html+='<div class="node '+(n.big?'big':'sm')+'" id="n-'+id+'" data-id="'+id+'" style="left:'+n.x+'px;top:'+n.y+'px;width:'+n.w+'px;height:'+n.h+'px;--w:'+n.w+'px;--h:'+n.h+'px"><span class="tag lab">'+n.tag+'</span><span class="coord"></span>';
+  if(!n.big)html+='<span class="g">'+n.g+'</span><b>'+n.t+'</b><small>'+n.s+'</small><span class="out" id="o-'+id+'">aguardando</span>';
+  html+='</div>'}
+$('nodes').innerHTML=html;
 
-    <!-- FLUXO -->
-    <section class="cartao fluxo" aria-label="Fluxo no n8n">
-      <div class="cartao__cabecalho">
-        <h2 class="cartao__titulo">Fluxo no n8n</h2>
-        <span class="cartao__nota">os nós acendem conforme a mensagem passa</span>
-      </div>
-      <ol class="nos" id="lista-nos"></ol>
-      <details class="prompt">
-        <summary>Ver o prompt enviado para a IA</summary>
-        <pre id="ultimo-prompt">Envie uma mensagem para ver o prompt montado pelo nó "Monta Contexto".</pre>
-      </details>
-    </section>
+$('n-chat').innerHTML+='<div class="bar" data-h><span class="dot"></span><b>Chatbot</b><span>consulta a base</span><span class="r">↔ arraste</span></div><div class="chat" id="chat" aria-live="polite"></div><div class="chips" id="chips"></div><form class="send" id="form"><input id="inp" autocomplete="off" maxlength="200" placeholder="Digite sua dúvida…" aria-label="Sua mensagem"><button id="sendb" type="submit">Enviar</button></form>';
+$('n-rule').innerHTML+='<div class="bar" data-h><b>Limite</b><span class="r">↔</span></div><div class="rule"><p>Alertar a cada <b id="xl">5</b> chamados do mesmo assunto</p><div class="step"><button type="button" id="xm" aria-label="Menos">−</button><output id="xo">5</output><button type="button" id="xp" aria-label="Mais">+</button></div></div>';
+$('n-dash').innerHTML+='<div class="bar" data-h><b>Hoje</b><span class="r">↔</span></div><div class="dash"><div class="kp"><div><b id="kT">0</b><span>chamados</span></div><div class="o"><b id="kR">0%</b><span>resolvidos pelo chatbot</span></div><div class="y"><b id="kF">0</b><span>para a equipe</span></div></div><div class="cats" id="cats"></div><div style="display:flex;gap:12px;align-items:center;min-width:0"><button type="button" class="simb" id="sim">▶ Simular movimento</button><span class="ticker" id="tick"></span></div></div>';
+$('n-inbox').innerHTML+='<div class="bar" data-h><b>Gmail</b><span class="badge" id="badge" hidden>0</span><span class="r">↔</span></div><div class="inbox" id="inbox"><p class="empty">Nenhum alerta ainda.<br>Quando um assunto se repetir, o e-mail chega aqui.</p></div>';
 
-    <!-- CHAMADOS -->
-    <section class="cartao chamados" aria-label="Chamados registrados">
-      <div class="cartao__cabecalho">
-        <h2 class="cartao__titulo">Planilha · aba Chamados</h2>
-        <button type="button" class="botao-texto" id="limpar-chamados">Limpar</button>
-      </div>
-      <div class="contadores" id="contadores"></div>
-      <p class="chamados__vazio" id="chamados-vazio">Nenhum chamado ainda. Mande uma pergunta no chat.</p>
-      <div class="tabela-rolagem">
-        <table class="tabela">
-          <thead>
-            <tr><th>Data</th><th>Pergunta</th><th>Resposta</th><th>Categoria</th><th>Status</th></tr>
-          </thead>
-          <tbody id="tabela-chamados"></tbody>
-        </table>
-      </div>
-    </section>
+/* wires */
+function port(n,side){return side==='r'?[n.x+n.w,n.y+n.h/2]:side==='l'?[n.x,n.y+n.h/2]:side==='b'?[n.x+n.w/2,n.y+n.h]:[n.x+n.w/2,n.y]}
+function pathFor(e){var a=N[e[0]],b=N[e[1]],p,q;
+  if(e[2]==='loop'){p=port(a,'t');q=port(b,'t');var top=Math.min(a.y,b.y)-46;return 'M'+p[0]+' '+p[1]+' C'+p[0]+' '+top+' '+q[0]+' '+top+' '+q[0]+' '+q[1]}
+  if(e[2]==='down'||Math.abs(b.y-a.y)>Math.abs(b.x-a.x)){var dn=b.y>a.y;p=port(a,dn?'b':'t');q=port(b,dn?'t':'b');var my=(p[1]+q[1])/2;return 'M'+p[0]+' '+p[1]+' C'+p[0]+' '+my+' '+q[0]+' '+my+' '+q[0]+' '+q[1]}
+  var fw=b.x>=a.x;p=port(a,fw?'r':'l');q=port(b,fw?'l':'r');var dx=Math.max(40,Math.abs(q[0]-p[0])/2)*(fw?1:-1);
+  return 'M'+p[0]+' '+p[1]+' C'+(p[0]+dx)+' '+p[1]+' '+(q[0]-dx)+' '+q[1]+' '+q[0]+' '+q[1]}
+function drawWires(){
+  var s='';E.forEach(function(e,i){s+='<path class="w'+(e[0]==='rule'?' dash':'')+'" id="w'+i+'" d="'+pathFor(e)+'"/>'});
+  s+='<g id="pl"></g>';$('wires').innerHTML=s;
+}
+function eIndex(a,b){for(var i=0;i<E.length;i++)if(E[i][0]===a&&E[i][1]===b)return i;return -1}
 
-  </main>
+/* camera */
+var cam={x:0,y:0,s:1};
+function apply(){$('world').style.transform='translate('+cam.x+'px,'+cam.y+'px) scale('+cam.s+')';
+$('zl').textContent=Math.round(cam.s*100)+'%'}
+function fit(){var W=innerWidth,H=innerHeight;document.body.classList.toggle('narrow',W<700);
+  if(W<700){cam.s=Math.min(1,(W-24)/350,(H-70)/850);cam.x=12-36*cam.s;cam.y=14-26*cam.s;}
+  else{cam.s=Math.max(.55,Math.min(1,(W-40)/1720,(H-50)/980));cam.x=(W-1720*cam.s)/2;cam.y=Math.max(10,(H-980*cam.s)/2-10)}
+  apply()}
+function zoomAt(f,cx,cy){var ns=Math.max(.35,Math.min(1.8,cam.s*f));cam.x=cx-(cx-cam.x)*ns/cam.s;cam.y=cy-(cy-cam.y)*ns/cam.s;cam.s=ns;apply()}
+$('zi').onclick=function(){zoomAt(1.2,innerWidth/2,innerHeight/2)};$('zo').onclick=function(){zoomAt(1/1.2,innerWidth/2,innerHeight/2)};$('zf').onclick=fit;
+$('vp').addEventListener('wheel',function(e){e.preventDefault();if(e.ctrlKey||e.metaKey)zoomAt(Math.exp(-e.deltaY*.01),e.clientX,e.clientY);else{cam.x-=e.deltaX;cam.y-=e.deltaY;apply()}},{passive:false});
 
-  <footer class="rodape">
-    Demo com respostas simuladas a partir da base de conhecimento. Na versão real, as respostas vêm da IA (Groq · Llama 3.3) e os chamados vão para o Google Sheets.
-  </footer>
+/* drag nodes / pan canvas */
+var act=null;
+$('vp').addEventListener('pointerdown',function(e){
+  if(e.target.closest('input,button,.chat,.inbox,.chips,form,.rule,.dash'))return;
+  var nd=e.target.closest('.node');
+  if(nd&&(nd.classList.contains('sm')||e.target.closest('[data-h]'))){var n=N[nd.dataset.id];act={k:'node',el:nd,n:n,sx:e.clientX,sy:e.clientY,ox:n.x,oy:n.y,moved:false}}
+  else if(!nd){act={k:'pan',sx:e.clientX,sy:e.clientY,ox:cam.x,oy:cam.y};$('vp').classList.add('panning')}
+  if(act)$('vp').setPointerCapture(e.pointerId);
+});
+$('vp').addEventListener('pointermove',function(e){if(!act)return;var dx=e.clientX-act.sx,dy=e.clientY-act.sy;
+  if(act.k==='pan'){cam.x=act.ox+dx;cam.y=act.oy+dy;apply();return}
+  if(Math.abs(dx)+Math.abs(dy)>4)act.moved=true;if(!act.moved)return;
+  act.el.classList.add('drag');var n=act.n;n.x=Math.round((act.ox+dx/cam.s)/12)*12;n.y=Math.round((act.oy+dy/cam.s)/12)*12;
+  act.el.style.left=n.x+'px';act.el.style.top=n.y+'px';act.el.querySelector('.coord').textContent='x '+n.x+' · y '+n.y;
+  E.forEach(function(ed,i){if(N[ed[0]]===n||N[ed[1]]===n)$('w'+i).setAttribute('d',pathFor(ed))});
+});
+function up(){if(!act)return;if(act.k==='node'){act.el.classList.remove('drag');if(!act.moved&&act.el.classList.contains('sm'))inspect(act.el.dataset.id)}$('vp').classList.remove('panning');act=null}
+$('vp').addEventListener('pointerup',up);$('vp').addEventListener('pointercancel',up);
 
-  <script src="js/base-de-conhecimento.js"></script>
-  <script src="js/fluxo.js"></script>
+/* state */
+var QUEUE=[],X=5,LOG=[],base={},mails=[],last=null,busy=false,clock=8*60+4,selId=null;
+function hm(m){var h=Math.floor(m/60)%24,mi=m%60;return (h<10?'0':'')+h+':'+(mi<10?'0':'')+mi}
+function cnt(c){return LOG.filter(function(r){return r.cat===c}).length}
+function record(q){var m=match(q);clock+=3+Math.floor(Math.random()*12);
+  var r={t:hm(clock),q:q,cat:m.cat,hit:m.hit,ans:m.hit?m.hit.a:'Não encontrei essa resposta na base. Encaminhei sua dúvida para a equipe, que vai te responder em breve.'};
+  LOG.push(r);r.n=cnt(r.cat);r.s=r.n-(base[r.cat]||0);r.alert=r.s>=X;if(r.alert){base[r.cat]=r.n;mails.push({cat:r.cat,n:r.n,x:X,t:r.t})}
+  return r}
+
+function outs(r){return{kb:KB.length+' linhas lidas',prompt:'prompt com '+(KB.length+2)+' blocos',groq:r.hit?'achou: '+r.hit.q:'sem resposta na base',parse:'{ categoria: "'+r.cat+'" }',
+  log:'linha '+(LOG.length+1)+' · '+(r.hit?'resolvido':'encaminhado'),hist:r.n+' de '+r.cat+' hoje',count:r.s+' desde o último alerta',iff:r.alert?r.s+' de '+X+' → sim':r.s+' de '+X+' → ainda não',gmail:r.alert?'e-mail enviado':'—'}}
+var IO={kb:function(r){return['Pedido de leitura da aba FAQ',KB.length+' perguntas e respostas da equipe']},
+ prompt:function(r){return['Base + pergunta + instruções','Você é o assistente de suporte. Responda só com a base.\nPergunta: "'+r.q+'"']},
+ groq:function(r){return['O prompt montado',r.hit?'Encontrou na base: "'+r.hit.q+'"':'Nada na base sobre isso']},
+ parse:function(r){return['Texto da IA',JSON.stringify({resposta:r.ans.slice(0,70)+'…',categoria:r.cat},null,1)]},
+ log:function(r){return['Resposta + categoria',r.t+' | '+r.q+' | '+r.cat+' | '+(r.hit?'Resolvido':'Encaminhado')]},
+ hist:function(r){return['Categoria: '+r.cat,r.n+' chamados de '+r.cat+' hoje']},
+ count:function(r){return[r.n+' chamados de '+r.cat+' hoje','{ desde_ultimo_alerta: '+r.s+' }']},
+ iff:function(r){return[r.s+' chamados ≥ '+X+' ?',r.alert?'Sim → Gmail':'Ainda não ('+r.s+' de '+X+') → fim do fluxo']},
+ gmail:function(r){return[r.alert?'Alerta de '+r.cat:'—',r.alert?'Para: equipe@empresa.com\nAssunto: Recorrência em '+r.cat:'Não precisou']}};
+function inspect(id){selId=id;document.querySelectorAll('.node').forEach(function(n){n.classList.toggle('sel',n.dataset.id===id)});
+  var n=N[id],r=last,io=r?IO[id](r):['Ainda nada','Mande uma mensagem no chat'];
+  $('insp').hidden=false;
+  $('insp').innerHTML='<button class="x" type="button" id="ix" aria-label="Fechar">×</button><span class="lab">'+esc(n.tag)+'</span><h3>'+esc(n.t)+'</h3><p>'+esc(n.d)+'</p><span class="lab">Entra</span><code>'+esc(io[0])+'</code><span class="lab">Sai'+(r?' · última mensagem':'')+'</span><code>'+esc(io[1])+'</code>';
+  $('ix').onclick=function(){$('insp').hidden=true;selId=null;document.querySelectorAll('.node.sel').forEach(function(n){n.classList.remove('sel')})};
+}
+
+function dash(){
+  var t=LOG.length,ok=LOG.filter(function(r){return r.hit}).length;
+  $('kT').textContent=t;$('kR').textContent=(t?Math.round(ok/t*100):0)+'%';$('kF').textContent=t-ok;
+  $('cats').innerHTML=CATS.map(function(c){var n=cnt(c),s=n-(base[c]||0);return '<div class="cat'+(s>=X-1?' hot':'')+'"><span>'+c+'</span><span class="t"><i style="width:'+Math.min(100,s/X*100)+'%"></i><u style="left:100%"></u></span><span>'+s+' / '+X+'</span></div>'}).join('');
+  if(mails.length){$('inbox').innerHTML=mails.slice(-3).reverse().map(function(m,i){return '<div class="mail'+(i===0&&m.fresh?' new':'')+'"><div class="row"><b>Recorrência: '+m.cat+'</b><span>'+m.t+'</span></div><p>'+m.x+' chamados novos de '+m.cat+' ('+m.n+' hoje). Que tal criar um material de apoio sobre esse tema?</p></div>'}).join('');
+    var nw=mails.filter(function(m){return m.fresh}).length;$('badge').hidden=!nw;$('badge').textContent=nw}
+}
+
+/* the signal running through the wires */
+function run(a,b,label,mu,ms){var i=eIndex(a,b);if(i<0)return Promise.resolve();var p=$('w'+i),L=p.getTotalLength(),g=$('pl');
+  p.classList.add('on');p.classList.toggle('mu',!!mu);
+  var c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('r',5);c.setAttribute('class','pulse');if(mu)c.style.fill='var(--mu)';
+  var tx=document.createElementNS('http://www.w3.org/2000/svg','text');tx.setAttribute('class','plab');tx.textContent=label||'';if(mu)tx.style.fill='var(--mu)';
+  g.appendChild(c);g.appendChild(tx);var t0=performance.now();ms=ms||520;
+  return new Promise(function(res){(function f(now){var k=Math.min(1,(now-t0)/ms),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2,pt=p.getPointAtLength(L*e);
+    c.setAttribute('cx',pt.x);c.setAttribute('cy',pt.y);tx.setAttribute('x',pt.x+9);tx.setAttribute('y',pt.y-8);
+    if(k<1)requestAnimationFrame(f);else{c.remove();tx.remove();setTimeout(function(){p.classList.remove('on','mu')},700);res()}})(t0)})}
+function lit(id,txt,mu){var el=$('n-'+id);el.classList.add('lit');el.classList.toggle('mu',!!mu);if(txt!=null&&$('o-'+id))$('o-'+id).textContent=txt}
+function reset(){ORDER.forEach(function(id){$('n-'+id).classList.remove('lit','mu','idle')})}
+
+function add(h,cls){var d=document.createElement('div');d.className=cls;d.innerHTML=h;$('chat').appendChild(d);$('chat').scrollTop=$('chat').scrollHeight;return d}
+async function ask(q){
+  q=q.trim();if(!q)return;if(busy){QUEUE.push(q);return}busy=true;stopSim();reset();
+  mails.forEach(function(m){m.fresh=false});
+  add(esc(q),'m me');var ty=add('<i></i><i></i><i></i>','typing');
+  var sm=smalltalk(q);
+  if(sm){
+    await run('chat','kb','mensagem');lit('kb',KB.length+' linhas lidas');
+    await run('kb','prompt','base');lit('prompt','prompt com '+(KB.length+2)+' blocos');
+    await run('prompt','groq','prompt');lit('groq','não é uma dúvida');
+    await run('groq','parse','json');lit('parse','{ tipo: "'+sm.k+'" }');
+    ['log','hist','count','iff','gmail'].forEach(function(id){$('n-'+id).classList.add('idle');$('o-'+id).textContent='não registra'});
+    await run('parse','chat','resposta',false,600);ty.remove();
+    add(esc(sm.a)+'<span class="k">'+sm.k+' · sem chamado</span>','m bot');
+    busy=false;if(QUEUE.length)ask(QUEUE.shift());return;
+  }
+  var r=record(q),o=outs(r);
+  await run('chat','kb','pergunta');lit('kb',o.kb);
+  await run('kb','prompt','base');lit('prompt',o.prompt);
+  await run('prompt','groq','prompt');lit('groq',o.groq);
+  await run('groq','parse','json');lit('parse',o.parse);
+  run('parse','chat','resposta',false,700).then(function(){ty.remove();add(esc(r.ans)+'<span class="k '+(r.hit?'ok':'fw')+'">'+r.cat+' · '+(r.hit?'resolvido':'encaminhado à equipe')+'</span>','m bot')});
+  await run('parse','log','linha');lit('log',o.log);last=r;dash();
+  run('log','dash','',false,420);
+  await run('log','hist','');lit('hist',o.hist);
+  await run('hist','count','');lit('count',o.count);
+  await run('count','iff',r.s+' de '+X);lit('iff',o.iff,r.alert);
+  if(r.alert){await run('iff','gmail','alerta',true);lit('gmail',o.gmail,true);await run('gmail','inbox','e-mail',true);mails[mails.length-1].fresh=true;dash()}
+  else{$('n-gmail').classList.add('idle');$('o-gmail').textContent=o.gmail}
+  if(selId)inspect(selId);
+  busy=false;if(QUEUE.length)ask(QUEUE.shift());
+}
+add('Oi! Sou o chatbot de suporte. Eu respondo consultando a base de perguntas frequentes da empresa. Se a resposta não estiver lá, encaminho para a equipe.','m bot');$('chips').innerHTML='<span class="lab">Experimente · a última não está na base</span>';
+['Fui cobrado duas vezes','Esqueci minha senha','Aceitam Pix?','Quero cancelar meu plano','Vocês têm loja física?'].forEach(function(s){var b=document.createElement('button');b.type='button';b.className='chip';b.textContent=s;b.onclick=function(){ask(s)};$('chips').appendChild(b)});
+$('form').addEventListener('submit',function(e){e.preventDefault();var v=$('inp').value;$('inp').value='';ask(v)});
+
+function setX(v){X=Math.max(2,Math.min(15,v));$('xo').textContent=X;$('xl').textContent=X;dash();if(selId)inspect(selId)}
+$('xm').onclick=function(){setX(X-1)};$('xp').onclick=function(){setX(X+1)};
+
+/* simulated traffic */
+var POOL=['Fui cobrado em dobro','Cadê a segunda via do boleto?','Posso parcelar no cartão?','Quero cancelar a assinatura','Como peço reembolso?','Esqueci a senha de novo','Não consigo fazer login','O app trava quando abro','Como troco meu email?','Que horas vocês atendem?','Vocês mandam nota fiscal?','Tem desconto pra estudante?','Entregam em Portugal?','A cobrança veio duplicada','Aceitam Pix?','Erro no pagamento pelo site','Meu acesso foi bloqueado','Quero meu dinheiro de volta','Vocês têm vagas?','Posso mudar o plano?'];
+var timer=null;
+function tickSim(){if(busy)return;var r=record(POOL[Math.floor(Math.random()*POOL.length)]);last=r;
+  $('tick').textContent='nova mensagem · '+r.t+' · '+r.q;run('chat','kb','',false,380);run('log','dash','',false,380);
+  if(r.alert){mails[mails.length-1].fresh=true;run('iff','gmail','alerta',true,380).then(function(){run('gmail','inbox','',true,380)})}
+  dash();if(LOG.length>=90)stopSim()}
+function stopSim(){if(!timer)return;clearInterval(timer);timer=null;$('sim').classList.remove('on');$('sim').textContent='▶ Simular movimento'}
+$('sim').onclick=function(){if(timer){stopSim();return}$('sim').classList.add('on');$('sim').textContent='❚❚ Pausar';tickSim();timer=setInterval(tickSim,900)};
+
+/* earlier today, already in the sheet */
+['Aceitam Pix?','Fui cobrado duas vezes','2ª via do boleto','Esqueci minha senha','O app está travando','Vocês têm app para tablet?'].forEach(record);
+dash();drawWires();fit();
+$('vp').addEventListener('scroll',function(){this.scrollLeft=0;this.scrollTop=0});
+var rt;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(fit,150)});
+})();
+</script>
 </body>
 </html>
