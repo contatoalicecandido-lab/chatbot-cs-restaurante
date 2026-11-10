@@ -1,6 +1,6 @@
 # Chatbot de suporte para restaurantes · demo do fluxo no n8n
 
-Página interativa que mostra o workflow **"Chatbot CS Nola"** (n8n) funcionando:
+Página interativa que mostra o workflow **"Chatbot CS Restô"** (n8n) funcionando:
 a pessoa manda uma dúvida, os nós acendem um por um e o chamado aparece na "planilha".
 
 ## O que tem em cada arquivo

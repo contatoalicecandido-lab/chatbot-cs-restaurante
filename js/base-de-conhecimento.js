@@ -1,5 +1,5 @@
 /*
-  BASE DE CONHECIMENTO (equivale à aba "FAQ" da planilha "Base de Conhecimento CS Nola")
+  BASE DE CONHECIMENTO (equivale à aba "FAQ" da planilha "Base de Conhecimento CS Restô")
 
   CONTEÚDO DE EXEMPLO: as 5 perguntas mais comuns, como num chatbot no início da operação.
   O time vai acrescentando novas perguntas conforme os chamados se repetem.

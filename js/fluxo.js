@@ -1,5 +1,5 @@
 /*
-  FLUXO DO CHATBOT — reprodução do workflow "Chatbot CS Nola" do n8n.
+  FLUXO DO CHATBOT — reprodução do workflow "Chatbot CS Restô" do n8n.
 
   ⛔ NÃO PRECISA MEXER AQUI para mudar o visual.
   Fontes, cores e espaçamentos ficam em css/tema.css e css/estilo.css.
@@ -61,7 +61,7 @@
   // Cumprimentos e conversa solta recebem uma resposta pronta e NÃO viram chamado.
   const PEDE_OPCAO = "Escolha uma das opções ou digite abaixo.";
   const RESPOSTAS_SAUDACAO = {
-    boasVindas: "Oi! Sou o assistente de suporte da Nola. Qual é a sua dúvida? " + PEDE_OPCAO,
+    boasVindas: "Oi! Sou o assistente de suporte da Restô. Qual é a sua dúvida? " + PEDE_OPCAO,
     cumprimento: (inicio) => inicio + " Qual é a sua dúvida? " + PEDE_OPCAO,
     insiste: "Preciso saber sua dúvida, por favor. " + PEDE_OPCAO,
     pedeDuvida: "Claro! Qual é a sua dúvida? " + PEDE_OPCAO,
@@ -192,7 +192,7 @@
   }
 
   // ===== Aba "Chamados" (guardada no navegador de quem testa) =====
-  const CHAVE = "chatbot-cs-nola:chamados";
+  const CHAVE = "chatbot-cs-resto:chamados";
   let chamados = [];
   try { chamados = JSON.parse(localStorage.getItem(CHAVE)) || []; } catch (e) { chamados = []; }
   function salvaChamados() {
@@ -203,7 +203,7 @@
   const NOS = [
     { id: "trigger",  nome: "When chat message received", descricao: "Recebe a mensagem do chat" },
     { id: "saudacao", nome: "Filtra Saudação",            descricao: "Cumprimento ou conversa solta? Responde e pede a dúvida, sem abrir chamado", novo: true },
-    { id: "faq",     nome: "Get row(s) in sheet",        descricao: "Lê a aba FAQ da Base de Conhecimento CS Nola" },
+    { id: "faq",     nome: "Get row(s) in sheet",        descricao: "Lê a aba FAQ da Base de Conhecimento CS Restô" },
     { id: "contexto", nome: "Monta Contexto",             descricao: "Junta a pergunta e a base num prompt para a IA" },
     { id: "http",     nome: "HTTP Request",               descricao: "Envia para a IA (Groq · " + MODELO + ")" },
     { id: "extrai",   nome: "Extrai Resposta",            descricao: "Separa a resposta e a categoria" },
@@ -421,7 +421,7 @@
   desenhaChamados();
 
   // usado só nos testes automáticos
-  window.__chatbotNola = {
+  window.__chatbotResto = {
     simulaIA, filtraSaudacao, calculaStatus, acrescentaDica, montaContexto, RESPOSTA_SEM_INFORMACAO,
     zeraConversa: () => { conversasSoltasSeguidas = 0; }
   };
